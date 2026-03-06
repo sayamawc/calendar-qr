@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>カレンダー登録QRコード生成</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", sans-serif;
+      background: #fff;
+      color: #333;
+      line-height: 1.6;
+      padding: 24px 16px;
+    }
+
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 20px;
+      text-align: center;
+      margin-bottom: 24px;
+      color: #1a73e8;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #555;
+    }
+
+    label .required {
+      color: #e53935;
+      margin-left: 4px;
+    }
+
+    input[type="text"],
+    input[type="datetime-local"],
+    textarea {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: #1a73e8;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .btn-primary {
+      background: #1a73e8;
+      color: #fff;
+      margin-top: 8px;
+    }
+
+    .btn-primary:hover {
+      background: #1557b0;
+    }
+
+    .btn-secondary {
+      background: #fff;
+      color: #1a73e8;
+      border: 2px solid #1a73e8;
+      margin-top: 12px;
+    }
+
+    .btn-secondary:hover {
+      background: #e8f0fe;
+    }
+
+    /* QRコード表示エリア */
+    #result {
+      display: none;
+      margin-top: 32px;
+      text-align: center;
+    }
+
+    #result h2 {
+      font-size: 16px;
+      margin-bottom: 16px;
+      color: #333;
+    }
+
+    #qrcode {
+      display: inline-block;
+      padding: 16px;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+    }
+
+    .result-note {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>カレンダー登録QRコード生成</h1>
+
+    <div class="form-group">
+      <label>タイトル<span class="required">*</span></label>
+      <input type="text" id="title" placeholder="例：会議、打ち合わせ">
+    </div>
+
+    <div class="form-group">
+      <label>開始日時<span class="required">*</span></label>
+      <input type="datetime-local" id="dtstart">
+    </div>
+
+    <div class="form-group">
+      <label>終了日時<span class="required">*</span></label>
+      <input type="datetime-local" id="dtend">
+    </div>
+
+    <div class="form-group">
+      <label>場所</label>
+      <input type="text" id="location" placeholder="例：会議室A">
+    </div>
+
+    <div class="form-group">
+      <label>説明・メモ</label>
+      <textarea id="description" placeholder="任意の説明やメモ"></textarea>
+    </div>
+
+    <button class="btn btn-primary" onclick="generate()">QRコードを生成</button>
+
+    <div id="result">
+      <h2>QRコード</h2>
+      <div id="qrcode"></div>
+      <p class="result-note">このQRコードをスマートフォンで読み取ると、カレンダーに予定を追加できます</p>
+      <button class="btn btn-secondary" onclick="downloadIcs()">.icsファイルをダウンロード</button>
+    </div>
+  </div>
+
+  <script>
+    // .icsダウンロード用のiCalendar文字列を保持
+    let lastIcal = '';
+
+    // 日時をUTCのYYYYMMDDTHHmmssZ形式に変換
+    function formatDateUTC(dateStr) {
+      const d = new Date(dateStr);
+      const pad = (n) => String(n).padStart(2, '0');
+      return d.getUTCFullYear()
+        + pad(d.getUTCMonth() + 1)
+        + pad(d.getUTCDate())
+        + 'T'
+        + pad(d.getUTCHours())
+        + pad(d.getUTCMinutes())
+        + pad(d.getUTCSeconds())
+        + 'Z';
+    }
+
+    // Google Calendar URL を生成（QRコード用）
+    function buildGoogleCalendarUrl(title, dtstart, dtend, location, description) {
+      const start = formatDateUTC(dtstart);
+      const end = formatDateUTC(dtend);
+      let url = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+        + '&text=' + encodeURIComponent(title)
+        + '&dates=' + encodeURIComponent(start + '/' + end);
+      if (location) {
+        url += '&location=' + encodeURIComponent(location);
+      }
+      if (description) {
+        url += '&details=' + encodeURIComponent(description);
+      }
+      return url;
+    }
+
+    // iCalendar文字列を生成（.icsダウンロード用）
+    function buildIcal(title, dtstart, dtend, location, description) {
+      const now = new Date();
+      const dtstamp = formatDateUTC(now.toISOString());
+      const uid = Date.now() + '@calendar-qr';
+
+      let lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Calendar QR Generator//JP',
+        'BEGIN:VEVENT',
+        'UID:' + uid,
+        'DTSTAMP:' + dtstamp,
+        'DTSTART:' + formatDateUTC(dtstart),
+        'DTEND:' + formatDateUTC(dtend),
+        'SUMMARY:' + title,
+      ];
+
+      if (location) {
+        lines.push('LOCATION:' + location);
+      }
+      if (description) {
+        lines.push('DESCRIPTION:' + description);
+      }
+
+      lines.push('END:VEVENT');
+      lines.push('END:VCALENDAR');
+
+      return lines.join('\r\n');
+    }
+
+    // バリデーション → URL/iCal生成 → QRコード表示
+    function generate() {
+      const title = document.getElementById('title').value.trim();
+      const dtstart = document.getElementById('dtstart').value;
+      const dtend = document.getElementById('dtend').value;
+      const location = document.getElementById('location').value.trim();
+      const description = document.getElementById('description').value.trim();
+
+      // バリデーション
+      if (!title) {
+        alert('タイトルを入力してください');
+        return;
+      }
+      if (!dtstart || !dtend) {
+        alert('開始日時と終了日時を入力してください');
+        return;
+      }
+      if (new Date(dtend) <= new Date(dtstart)) {
+        alert('終了日時は開始日時より後に設定してください');
+        return;
+      }
+
+      // .icsダウンロード用のiCalendar文字列を生成
+      lastIcal = buildIcal(title, dtstart, dtend, location, description);
+
+      // QRコード用のGoogle Calendar URLを生成
+      const gcalUrl = buildGoogleCalendarUrl(title, dtstart, dtend, location, description);
+
+      // 結果エリアを先に表示（非表示のままだとcanvasが描画されない）
+      document.getElementById('result').style.display = 'block';
+
+      // QRコードエリアをクリアして再生成
+      const qrEl = document.getElementById('qrcode');
+      qrEl.innerHTML = '';
+
+      new QRCode(qrEl, {
+        text: gcalUrl,
+        width: 256,
+        height: 256,
+        correctLevel: QRCode.CorrectLevel.M,
+      });
+    }
+
+    // .icsファイルをダウンロード
+    function downloadIcs() {
+      const blob = new Blob([lastIcal], { type: 'text/calendar' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'event.ics';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
