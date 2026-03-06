@@ -2,8 +2,8 @@
 
 ## プロジェクト概要
 
-イベント情報を入力するとiCalendar形式のQRコードを生成するWebアプリ。
-QRコードをスマートフォンで読み取るとカレンダーアプリ（Google カレンダー・Apple カレンダー・Outlook等）に予定を追加できる。
+イベント情報を入力するとQRコードを生成するWebアプリ。
+QRコードをスマートフォンで読み取ると**カレンダー選択ページ**が開き、Google カレンダー・Apple カレンダー・Outlook 等にワンタップで予定を追加できる。
 
 ---
 
@@ -12,6 +12,7 @@ QRコードをスマートフォンで読み取るとカレンダーアプリ（
 - HTML / CSS / JavaScript（単一ファイル構成）
 - QRコード生成ライブラリ：`qrcode.js`（CDN: `https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js`）
 - 外部サーバー・バックエンド不要
+- 公開先：GitHub Pages 等の静的ホスティング（QRコード読み取り時にURLアクセスが必要なため）
 
 ---
 
@@ -19,14 +20,27 @@ QRコードをスマートフォンで読み取るとカレンダーアプリ（
 
 ```
 calendar-qr/
-└── index.html   ← 1ファイルですべて完結
+└── index.html   ← 1ファイルですべて完結（生成画面・登録画面を兼用）
 ```
 
 ---
 
 ## 画面構成
 
-### 入力フォーム
+`index.html` はURLのクエリパラメータの有無で2つのモードを切り替える。
+
+### モード判定
+
+| 条件 | 表示画面 |
+|---|---|
+| クエリパラメータなし | 生成画面（イベント入力フォーム） |
+| `?title=...&start=...&end=...` あり | 登録画面（カレンダー選択） |
+
+---
+
+### 生成画面（パラメータなし）
+
+#### 入力フォーム
 
 | フィールド | 種別 | 必須 | 備考 |
 |---|---|---|---|
@@ -36,12 +50,12 @@ calendar-qr/
 | 場所 | テキスト入力 | ❌ | 任意入力 |
 | 説明・メモ | テキストエリア | ❌ | 任意入力 |
 
-### ボタン
+#### ボタン
 
 - **QRコードを生成** ボタン（メインアクション）
 - **.icsファイルをダウンロード** ボタン（QRコード生成後に表示）
 
-### QRコード表示エリア
+#### QRコード表示エリア
 
 - 生成ボタン押下後に表示
 - QRコード画像（256×256px 目安）
@@ -49,11 +63,63 @@ calendar-qr/
 
 ---
 
+### 登録画面（パラメータあり）
+
+QRコード読み取り後にスマートフォンで表示される画面。
+
+#### イベント概要表示
+
+クエリパラメータから取得した以下の情報を表示する。
+
+- タイトル
+- 開始日時・終了日時（ローカル時刻に変換して表示）
+- 場所（入力がある場合）
+- 説明（入力がある場合）
+
+#### カレンダー追加ボタン
+
+- **Google カレンダーに追加** ボタン — Google Calendar URL を開く
+- **Apple カレンダー / Outlook に追加** ボタン — .ics ファイルをダウンロード
+
+---
+
 ## 機能仕様
+
+### クエリパラメータ形式
+
+QRコードにエンコードするURLのパラメータ：
+
+| パラメータ | 必須 | 値の形式 | 例 |
+|---|---|---|---|
+| `title` | ✅ | 文字列（encodeURIComponent済み） | `%E4%BC%9A%E8%AD%B0` |
+| `start` | ✅ | `YYYYMMDDTHHmmssZ`（UTC） | `20260307T010000Z` |
+| `end` | ✅ | `YYYYMMDDTHHmmssZ`（UTC） | `20260307T020000Z` |
+| `location` | ❌ | 文字列（encodeURIComponent済み） | `%E4%BC%9A%E8%AD%B0%E5%AE%A4A` |
+| `description` | ❌ | 文字列（encodeURIComponent済み） | `%E8%AD%B0%E9%A1%8C...` |
+
+### QRコード生成
+
+- 自サイトURL + 上記クエリパラメータをQRコードにエンコードする
+- ベースURL は `location.origin + location.pathname` から自動取得する
+- `qrcode.js` の `QRCode` クラスを使用
+- エラー訂正レベル：`M`
+- サイズ：256×256px
+
+### Google Calendar URL 生成（登録画面）
+
+クエリパラメータから以下の形式のURLを生成してリンクする。
+
+```
+https://calendar.google.com/calendar/render?action=TEMPLATE
+  &text={タイトル}
+  &dates={開始}%2F{終了}
+  &location={場所}（入力がある場合のみ）
+  &details={説明}（入力がある場合のみ）
+```
 
 ### iCalendar（.ics）データ生成
 
-入力値をもとに以下の形式の文字列を生成する。
+入力値をもとに以下の形式の文字列を生成する。生成画面の .ics ダウンロードと、登録画面の Apple カレンダー / Outlook ボタンで共用する。
 
 ```
 BEGIN:VCALENDAR
@@ -73,24 +139,12 @@ END:VCALENDAR
 
 **注意：** 日時はブラウザのローカル時刻をUTCに変換して出力する。
 
-### QRコード生成
-
-- **Google Calendar URL** をQRコードにエンコードする
-  - 生のiCalendarテキストはスマートフォンのQRリーダーでカレンダーデータとして認識されないため、Google Calendar URLを使用する
-- URL形式：`https://calendar.google.com/calendar/render?action=TEMPLATE&text={タイトル}&dates={開始}%2F{終了}&location={場所}&details={説明}`
-  - `dates` の値は `YYYYMMDDTHHmmssZ/YYYYMMDDTHHmmssZ`（UTC）
-  - `location`, `details` は入力がある場合のみパラメータに含める
-  - 各パラメータ値は `encodeURIComponent` でエンコードする
-- `qrcode.js` の `QRCode` クラスを使用
-- エラー訂正レベル：`M`
-- サイズ：256×256px
-
 ### .icsファイルダウンロード
 
 - iCalendar文字列を `text/calendar` のBlobとして生成
 - `<a download="event.ics">` を動的生成してクリックする方式で実装
 
-### バリデーション
+### バリデーション（生成画面のみ）
 
 - タイトル未入力時：アラートを表示して処理中断
 - 開始日時・終了日時未入力時：アラートを表示して処理中断
@@ -106,15 +160,18 @@ END:VCALENDAR
 - 最大幅 480px 程度でセンタリング
 - 配色：白背景 + アクセントカラー1色（青系を推奨）
 - QRコード生成後はフォームとQRコードが同一画面に収まるよう配慮
+- 登録画面はスマートフォンでの操作を前提としたシンプルなレイアウト
 
 ---
 
 ## 動作確認ポイント
 
 1. PC のブラウザで入力→QRコード生成されること
-2. スマートフォンのカメラでQRコードを読み取ると、カレンダーアプリへの追加確認ダイアログが表示されること（iOS / Android）
-3. .icsダウンロードボタンから直接カレンダーに取り込めること
-4. バリデーションが正しく動作すること
+2. QRコードを読み取ると登録画面が表示され、イベント概要が正しいこと
+3. 「Google カレンダーに追加」→ Google Calendar の予定作成画面が開くこと（Android / iOS）
+4. 「Apple カレンダー / Outlook に追加」→ .ics ダウンロード → カレンダーアプリに取り込めること（iOS / PC）
+5. 生成画面の .ics ダウンロードボタンから直接カレンダーに取り込めること
+6. バリデーションが正しく動作すること
 
 ---
 
@@ -122,8 +179,9 @@ END:VCALENDAR
 
 - `qrcode.js` は `new QRCode(element, { text, width, height, correctLevel })` で使用する
 - 再生成時は `document.getElementById('qrcode').innerHTML = ''` で前のQRコードをクリアしてから再生成する
-- QRコードには Google Calendar URL をエンコードする（iCalendar テキストはデータ量が多く、またスマートフォンのQRリーダーがカレンダーデータとして認識しないため）
-- .ics ダウンロード用の iCalendar 文字列は従来通り生成する（改行は `\r\n`（CRLF）、RFC 5545 準拠）
+- URLのクエリパラメータは `URLSearchParams` で取得する
+- 登録画面の日時表示は `toLocaleString('ja-JP')` でローカル時刻に変換する
+- iCalendar の改行は `\r\n`（CRLF）を使用する（RFC 5545 準拠）
 - 長い行（75オクテット超）の折り返し（line folding）は今回は省略可
 
 ---

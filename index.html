@@ -81,6 +81,8 @@
       border-radius: 8px;
       cursor: pointer;
       transition: background-color 0.2s;
+      text-decoration: none;
+      text-align: center;
     }
 
     .btn-primary {
@@ -130,44 +132,131 @@
       font-size: 13px;
       color: #777;
     }
+
+    /* 登録画面 */
+    .event-card {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+
+    .event-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 12px;
+    }
+
+    .event-detail {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 15px;
+      color: #555;
+    }
+
+    .event-detail-icon {
+      flex-shrink: 0;
+      width: 20px;
+      text-align: center;
+    }
+
+    .btn-google {
+      background: #1a73e8;
+      color: #fff;
+      margin-top: 0;
+    }
+
+    .btn-google:hover {
+      background: #1557b0;
+    }
+
+    .btn-ics {
+      background: #fff;
+      color: #333;
+      border: 2px solid #ccc;
+      margin-top: 12px;
+    }
+
+    .btn-ics:hover {
+      background: #f5f5f5;
+    }
+
+    .add-section-label {
+      font-size: 13px;
+      color: #777;
+      margin-bottom: 12px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>カレンダー登録QRコード生成</h1>
+    <!-- 生成画面 -->
+    <div id="generator-view">
+      <h1>カレンダー登録QRコード生成</h1>
 
-    <div class="form-group">
-      <label>タイトル<span class="required">*</span></label>
-      <input type="text" id="title" placeholder="例：会議、打ち合わせ">
+      <div class="form-group">
+        <label>タイトル<span class="required">*</span></label>
+        <input type="text" id="title" placeholder="例：会議、打ち合わせ">
+      </div>
+
+      <div class="form-group">
+        <label>開始日時<span class="required">*</span></label>
+        <input type="datetime-local" id="dtstart">
+      </div>
+
+      <div class="form-group">
+        <label>終了日時<span class="required">*</span></label>
+        <input type="datetime-local" id="dtend">
+      </div>
+
+      <div class="form-group">
+        <label>場所</label>
+        <input type="text" id="location" placeholder="例：会議室A">
+      </div>
+
+      <div class="form-group">
+        <label>説明・メモ</label>
+        <textarea id="description" placeholder="任意の説明やメモ"></textarea>
+      </div>
+
+      <button class="btn btn-primary" onclick="generate()">QRコードを生成</button>
+
+      <div id="result">
+        <h2>QRコード</h2>
+        <div id="qrcode"></div>
+        <p class="result-note">このQRコードをスマートフォンで読み取ると、カレンダーに予定を追加できます</p>
+        <button class="btn btn-secondary" onclick="downloadIcs()">.icsファイルをダウンロード</button>
+      </div>
     </div>
 
-    <div class="form-group">
-      <label>開始日時<span class="required">*</span></label>
-      <input type="datetime-local" id="dtstart">
-    </div>
+    <!-- 登録画面 -->
+    <div id="register-view" style="display:none;">
+      <h1>カレンダーに予定を追加</h1>
 
-    <div class="form-group">
-      <label>終了日時<span class="required">*</span></label>
-      <input type="datetime-local" id="dtend">
-    </div>
+      <div class="event-card">
+        <div class="event-title" id="reg-title"></div>
+        <div class="event-detail">
+          <span class="event-detail-icon">&#128197;</span>
+          <span id="reg-datetime"></span>
+        </div>
+        <div class="event-detail" id="reg-location-row" style="display:none;">
+          <span class="event-detail-icon">&#128205;</span>
+          <span id="reg-location"></span>
+        </div>
+        <div class="event-detail" id="reg-description-row" style="display:none;">
+          <span class="event-detail-icon">&#128221;</span>
+          <span id="reg-description"></span>
+        </div>
+      </div>
 
-    <div class="form-group">
-      <label>場所</label>
-      <input type="text" id="location" placeholder="例：会議室A">
-    </div>
-
-    <div class="form-group">
-      <label>説明・メモ</label>
-      <textarea id="description" placeholder="任意の説明やメモ"></textarea>
-    </div>
-
-    <button class="btn btn-primary" onclick="generate()">QRコードを生成</button>
-
-    <div id="result">
-      <h2>QRコード</h2>
-      <div id="qrcode"></div>
-      <p class="result-note">このQRコードをスマートフォンで読み取ると、カレンダーに予定を追加できます</p>
-      <button class="btn btn-secondary" onclick="downloadIcs()">.icsファイルをダウンロード</button>
+      <p class="add-section-label">カレンダーを選択してください</p>
+      <a id="reg-google-btn" class="btn btn-google" target="_blank" rel="noopener">Google カレンダーに追加</a>
+      <button class="btn btn-ics" onclick="downloadIcsFromParams()">Apple カレンダー / Outlook に追加</button>
     </div>
   </div>
 
@@ -189,26 +278,9 @@
         + 'Z';
     }
 
-    // Google Calendar URL を生成（QRコード用）
-    function buildGoogleCalendarUrl(title, dtstart, dtend, location, description) {
-      const start = formatDateUTC(dtstart);
-      const end = formatDateUTC(dtend);
-      let url = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
-        + '&text=' + encodeURIComponent(title)
-        + '&dates=' + encodeURIComponent(start + '/' + end);
-      if (location) {
-        url += '&location=' + encodeURIComponent(location);
-      }
-      if (description) {
-        url += '&details=' + encodeURIComponent(description);
-      }
-      return url;
-    }
-
-    // iCalendar文字列を生成（.icsダウンロード用）
-    function buildIcal(title, dtstart, dtend, location, description) {
-      const now = new Date();
-      const dtstamp = formatDateUTC(now.toISOString());
+    // iCalendar文字列を生成
+    function buildIcal(title, start, end, location, description) {
+      const dtstamp = formatDateUTC(new Date().toISOString());
       const uid = Date.now() + '@calendar-qr';
 
       let lines = [
@@ -218,8 +290,8 @@
         'BEGIN:VEVENT',
         'UID:' + uid,
         'DTSTAMP:' + dtstamp,
-        'DTSTART:' + formatDateUTC(dtstart),
-        'DTEND:' + formatDateUTC(dtend),
+        'DTSTART:' + start,
+        'DTEND:' + end,
         'SUMMARY:' + title,
       ];
 
@@ -236,7 +308,48 @@
       return lines.join('\r\n');
     }
 
-    // バリデーション → URL/iCal生成 → QRコード表示
+    // .icsファイルをダウンロード
+    function triggerIcsDownload(icalStr) {
+      const blob = new Blob([icalStr], { type: 'text/calendar' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'event.ics';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Google Calendar URL を生成
+    function buildGoogleCalendarUrl(title, start, end, location, description) {
+      let url = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+        + '&text=' + encodeURIComponent(title)
+        + '&dates=' + encodeURIComponent(start + '/' + end);
+      if (location) {
+        url += '&location=' + encodeURIComponent(location);
+      }
+      if (description) {
+        url += '&details=' + encodeURIComponent(description);
+      }
+      return url;
+    }
+
+    // UTC文字列をローカル日時表示に変換
+    function formatLocalDateTime(utcStr) {
+      // YYYYMMDDTHHmmssZ → Date
+      const y = utcStr.slice(0, 4);
+      const m = utcStr.slice(4, 6);
+      const d = utcStr.slice(6, 8);
+      const h = utcStr.slice(9, 11);
+      const min = utcStr.slice(11, 13);
+      const s = utcStr.slice(13, 15);
+      const date = new Date(Date.UTC(y, m - 1, d, h, min, s));
+      return date.toLocaleString('ja-JP');
+    }
+
+    // ===== 生成画面 =====
+
     function generate() {
       const title = document.getElementById('title').value.trim();
       const dtstart = document.getElementById('dtstart').value;
@@ -258,11 +371,24 @@
         return;
       }
 
-      // .icsダウンロード用のiCalendar文字列を生成
-      lastIcal = buildIcal(title, dtstart, dtend, location, description);
+      const start = formatDateUTC(dtstart);
+      const end = formatDateUTC(dtend);
 
-      // QRコード用のGoogle Calendar URLを生成
-      const gcalUrl = buildGoogleCalendarUrl(title, dtstart, dtend, location, description);
+      // .icsダウンロード用
+      lastIcal = buildIcal(title, start, end, location, description);
+
+      // QRコード用URL（自サイト + クエリパラメータ）
+      const baseUrl = window.location.origin + window.location.pathname;
+      let qrUrl = baseUrl
+        + '?title=' + encodeURIComponent(title)
+        + '&start=' + encodeURIComponent(start)
+        + '&end=' + encodeURIComponent(end);
+      if (location) {
+        qrUrl += '&location=' + encodeURIComponent(location);
+      }
+      if (description) {
+        qrUrl += '&description=' + encodeURIComponent(description);
+      }
 
       // 結果エリアを先に表示（非表示のままだとcanvasが描画されない）
       document.getElementById('result').style.display = 'block';
@@ -272,25 +398,68 @@
       qrEl.innerHTML = '';
 
       new QRCode(qrEl, {
-        text: gcalUrl,
+        text: qrUrl,
         width: 256,
         height: 256,
         correctLevel: QRCode.CorrectLevel.M,
       });
     }
 
-    // .icsファイルをダウンロード
     function downloadIcs() {
-      const blob = new Blob([lastIcal], { type: 'text/calendar' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'event.ics';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      triggerIcsDownload(lastIcal);
     }
+
+    // ===== 登録画面 =====
+
+    function downloadIcsFromParams() {
+      const params = new URLSearchParams(window.location.search);
+      const title = params.get('title') || '';
+      const start = params.get('start') || '';
+      const end = params.get('end') || '';
+      const location = params.get('location') || '';
+      const description = params.get('description') || '';
+      const ical = buildIcal(title, start, end, location, description);
+      triggerIcsDownload(ical);
+    }
+
+    function initRegisterView(params) {
+      const title = params.get('title') || '';
+      const start = params.get('start') || '';
+      const end = params.get('end') || '';
+      const location = params.get('location') || '';
+      const description = params.get('description') || '';
+
+      // イベント概要を表示
+      document.getElementById('reg-title').textContent = title;
+      document.getElementById('reg-datetime').textContent =
+        formatLocalDateTime(start) + ' 〜 ' + formatLocalDateTime(end);
+
+      if (location) {
+        document.getElementById('reg-location').textContent = location;
+        document.getElementById('reg-location-row').style.display = 'flex';
+      }
+      if (description) {
+        document.getElementById('reg-description').textContent = description;
+        document.getElementById('reg-description-row').style.display = 'flex';
+      }
+
+      // Google Calendar リンクを設定
+      const gcalUrl = buildGoogleCalendarUrl(title, start, end, location, description);
+      document.getElementById('reg-google-btn').href = gcalUrl;
+
+      // 画面を切り替え
+      document.getElementById('generator-view').style.display = 'none';
+      document.getElementById('register-view').style.display = 'block';
+    }
+
+    // ===== ページ読み込み時のモード判定 =====
+
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('title') && params.has('start') && params.has('end')) {
+        initRegisterView(params);
+      }
+    })();
   </script>
 </body>
 </html>
