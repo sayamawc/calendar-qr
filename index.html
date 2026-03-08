@@ -185,6 +185,17 @@
       background: #f5f5f5;
     }
 
+    .btn-disabled {
+      background: #e0e0e0 !important;
+      color: #999 !important;
+      border-color: #e0e0e0 !important;
+      cursor: not-allowed;
+    }
+
+    .btn-disabled:hover {
+      background: #e0e0e0 !important;
+    }
+
     .add-section-label {
       font-size: 13px;
       color: #777;
@@ -230,7 +241,7 @@
         <h2>QRコード</h2>
         <div id="qrcode"></div>
         <p class="result-note">このQRコードをスマートフォンで読み取ると、カレンダーに予定を追加できます</p>
-        <button class="btn btn-secondary" onclick="downloadIcs()">.icsファイルをダウンロード</button>
+        <button class="btn btn-secondary btn-disabled" disabled>.icsファイルをダウンロード（準備中）</button>
       </div>
     </div>
 
@@ -256,7 +267,7 @@
 
       <p class="add-section-label">カレンダーを選択してください</p>
       <a id="reg-google-btn" class="btn btn-google" target="_blank" rel="noopener">Google カレンダーに追加</a>
-      <button class="btn btn-ics" onclick="downloadIcsFromParams()">Apple カレンダー / Outlook に追加</button>
+      <button class="btn btn-ics btn-disabled" disabled>Apple カレンダー / Outlook に追加（準備中）</button>
     </div>
   </div>
 
