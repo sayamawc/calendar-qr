@@ -308,7 +308,7 @@
       return lines.join('\r\n');
     }
 
-    // .icsファイルをダウンロード
+    // .icsファイルをダウンロード（生成画面・PC向け）
     function triggerIcsDownload(icalStr) {
       const blob = new Blob([icalStr], { type: 'text/calendar' });
       const url = URL.createObjectURL(blob);
@@ -319,6 +319,14 @@
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    }
+
+    // .icsをネイティブカレンダー連携で開く（登録画面・スマホ向け）
+    // download属性を使わず data: URI で開くことで、
+    // iOS/Android のカレンダーアプリ連携を発動させる
+    function openIcsNative(icalStr) {
+      const dataUri = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(icalStr);
+      window.location.href = dataUri;
     }
 
     // Google Calendar URL を生成
@@ -419,7 +427,7 @@
       const location = params.get('location') || '';
       const description = params.get('description') || '';
       const ical = buildIcal(title, start, end, location, description);
-      triggerIcsDownload(ical);
+      openIcsNative(ical);
     }
 
     function initRegisterView(params) {
