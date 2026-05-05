@@ -241,6 +241,7 @@
         <h2>QRコード</h2>
         <div id="qrcode"></div>
         <p class="result-note">このQRコードをスマートフォンで読み取ると、カレンダーに予定を追加できます</p>
+        <a id="gen-google-btn" class="btn btn-primary" target="_blank" rel="noopener" style="margin-top: 16px;">Googleカレンダーに追加</a>
         <button class="btn btn-secondary btn-disabled" disabled>.icsファイルをダウンロード（準備中）</button>
       </div>
     </div>
@@ -411,6 +412,9 @@
 
       // 結果エリアを先に表示（非表示のままだとcanvasが描画されない）
       document.getElementById('result').style.display = 'block';
+
+      // 生成者本人用：Googleカレンダー追加ボタンのhrefを更新
+      document.getElementById('gen-google-btn').href = buildGoogleCalendarUrl(title, start, end, location, description);
 
       // QRコードエリアをクリアして再生成
       const qrEl = document.getElementById('qrcode');
