@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# エディタ / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ログ・一時ファイル
+*.log
+tmp/
+.cache/
+
+# Claude Code ローカル設定
+.claude/settings.local.json
+
+# メモ・チートシート
+git-workflow.md
