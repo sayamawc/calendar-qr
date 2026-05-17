@@ -71,6 +71,37 @@
       min-height: 80px;
     }
 
+    /* 日時入力（日付 + 時 + 分の3要素） */
+    .datetime-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .datetime-group input[type="date"] {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .datetime-group select {
+      padding: 10px 8px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #fff;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .datetime-group select:focus {
+      border-color: #1a73e8;
+    }
+
+    .datetime-sep {
+      color: #555;
+      font-weight: 600;
+    }
+
     .btn {
       display: block;
       width: 100%;
@@ -217,12 +248,22 @@
 
       <div class="form-group">
         <label>開始日時<span class="required">*</span></label>
-        <input type="datetime-local" id="dtstart">
+        <div class="datetime-group">
+          <input type="date" id="dtstart-date">
+          <select id="dtstart-hour"></select>
+          <span class="datetime-sep">:</span>
+          <select id="dtstart-minute"></select>
+        </div>
       </div>
 
       <div class="form-group">
         <label>終了日時<span class="required">*</span></label>
-        <input type="datetime-local" id="dtend">
+        <div class="datetime-group">
+          <input type="date" id="dtend-date">
+          <select id="dtend-hour"></select>
+          <span class="datetime-sep">:</span>
+          <select id="dtend-minute"></select>
+        </div>
       </div>
 
       <div class="form-group">
@@ -276,9 +317,9 @@
     // .icsダウンロード用のiCalendar文字列を保持
     let lastIcal = '';
 
-    // 日時をUTCのYYYYMMDDTHHmmssZ形式に変換
-    function formatDateUTC(dateStr) {
-      const d = new Date(dateStr);
+    // 日時をUTCのYYYYMMDDTHHmmssZ形式に変換（文字列 or Date を受け付ける）
+    function formatDateUTC(dateOrStr) {
+      const d = dateOrStr instanceof Date ? dateOrStr : new Date(dateOrStr);
       const pad = (n) => String(n).padStart(2, '0');
       return d.getUTCFullYear()
         + pad(d.getUTCMonth() + 1)
@@ -355,6 +396,40 @@
       return url;
     }
 
+    // 時・分の <select> に選択肢を投入（時: 00-23、分: 00/10/20/30/40/50）
+    function populateTimeSelects(hourEl, minuteEl) {
+      for (let h = 0; h < 24; h++) {
+        const opt = document.createElement('option');
+        opt.value = String(h).padStart(2, '0');
+        opt.textContent = opt.value;
+        hourEl.appendChild(opt);
+      }
+      for (let m = 0; m < 60; m += 10) {
+        const opt = document.createElement('option');
+        opt.value = String(m).padStart(2, '0');
+        opt.textContent = opt.value;
+        minuteEl.appendChild(opt);
+      }
+    }
+
+    // 日付・時・分の3フィールドから Date を組み立てる（日付未入力なら null）
+    function readDateTimeFields(prefix) {
+      const dateStr = document.getElementById(prefix + '-date').value;
+      const hourStr = document.getElementById(prefix + '-hour').value;
+      const minuteStr = document.getElementById(prefix + '-minute').value;
+      if (!dateStr) return null;
+      return new Date(dateStr + 'T' + hourStr + ':' + minuteStr);
+    }
+
+    // Date を3フィールドに書き戻す
+    function writeDateTimeFields(prefix, date) {
+      const pad = (n) => String(n).padStart(2, '0');
+      document.getElementById(prefix + '-date').value =
+        date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+      document.getElementById(prefix + '-hour').value = pad(date.getHours());
+      document.getElementById(prefix + '-minute').value = pad(date.getMinutes());
+    }
+
     // UTC文字列をローカル日時表示に変換
     function formatLocalDateTime(utcStr) {
       // YYYYMMDDTHHmmssZ → Date
@@ -372,8 +447,8 @@
 
     function generate() {
       const title = document.getElementById('title').value.trim();
-      const dtstart = document.getElementById('dtstart').value;
-      const dtend = document.getElementById('dtend').value;
+      const startDate = readDateTimeFields('dtstart');
+      const endDate = readDateTimeFields('dtend');
       const location = document.getElementById('location').value.trim();
       const description = document.getElementById('description').value.trim();
 
@@ -382,17 +457,17 @@
         alert('タイトルを入力してください');
         return;
       }
-      if (!dtstart || !dtend) {
+      if (!startDate || !endDate) {
         alert('開始日時と終了日時を入力してください');
         return;
       }
-      if (new Date(dtend) <= new Date(dtstart)) {
+      if (endDate <= startDate) {
         alert('終了日時は開始日時より後に設定してください');
         return;
       }
 
-      const start = formatDateUTC(dtstart);
-      const end = formatDateUTC(dtend);
+      const start = formatDateUTC(startDate);
+      const end = formatDateUTC(endDate);
 
       // .icsダウンロード用
       lastIcal = buildIcal(title, start, end, location, description);
@@ -481,7 +556,29 @@
       const params = new URLSearchParams(window.location.search);
       if (params.has('title') && params.has('start') && params.has('end')) {
         initRegisterView(params);
+        return;
       }
+
+      // 生成画面：時・分の <select> に選択肢を投入
+      populateTimeSelects(
+        document.getElementById('dtstart-hour'),
+        document.getElementById('dtstart-minute')
+      );
+      populateTimeSelects(
+        document.getElementById('dtend-hour'),
+        document.getElementById('dtend-minute')
+      );
+
+      // 開始日時の3要素いずれかが変わったら、終了日時を「開始+60分」に上書き
+      const onStartChange = () => {
+        const start = readDateTimeFields('dtstart');
+        if (!start) return;
+        const end = new Date(start.getTime() + 60 * 60 * 1000);
+        writeDateTimeFields('dtend', end);
+      };
+      ['dtstart-date', 'dtstart-hour', 'dtstart-minute'].forEach((id) => {
+        document.getElementById(id).addEventListener('change', onStartChange);
+      });
     })();
   </script>
 </body>
